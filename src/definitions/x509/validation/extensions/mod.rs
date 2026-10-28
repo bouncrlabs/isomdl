@@ -75,7 +75,11 @@ where
 }
 
 /// Validate IACA extensions according to 18013-5 Annex B.
-pub fn validate_iaca_extensions(certificate: &Certificate) -> Vec<Error> {
+pub fn validate_iaca_extensions(
+    certificate: &Certificate,
+    crl_distribution_points: ExtensionRule,
+    issuer_alternative_name: ExtensionRule,
+) -> Vec<Error> {
     tracing::debug!("validating IACA extensions...");
 
     let extensions = certificate.tbs_certificate.extensions.iter().flatten();
@@ -87,8 +91,8 @@ pub fn validate_iaca_extensions(certificate: &Certificate) -> Vec<Error> {
             .with(SubjectKeyIdentifierValidator::from_certificate(certificate))
             .with(KeyUsageValidator::iaca())
             .with(BasicConstraintsValidator)
-            .with(CrlDistributionPointsValidator)
-            .with(IssuerAlternativeNameValidator)
+            .with_rule(crl_distribution_points, CrlDistributionPointsValidator)
+            .with_rule(issuer_alternative_name, IssuerAlternativeNameValidator)
             .validate_extensions(extensions),
     );
 

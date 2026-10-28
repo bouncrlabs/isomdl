@@ -186,13 +186,14 @@ pub struct IssuerProfile {
     pub document_signer_eku: ObjectIdentifier,
     /// How the document signer's and root's `stateOrProvinceName` are compared.
     pub state_or_province: RdnRule,
-    /// Whether `cRLDistributionPoints` is mandatory.
+    /// Whether `cRLDistributionPoints` is mandatory on the document signer and its IACA.
     ///
     /// Defaulted so a profile document written before this field existed still loads, and
     /// loads as Annex B rather than as the laxer rule.
     #[serde(default)]
     pub crl_distribution_points: ExtensionRule,
-    /// Whether `issuerAlternativeName` is mandatory. Defaulted, as above.
+    /// Whether `issuerAlternativeName` is mandatory on the document signer and its IACA.
+    /// Defaulted, as above.
     #[serde(default)]
     pub issuer_alternative_name: ExtensionRule,
 }
@@ -478,7 +479,11 @@ impl CertificateProfile for IssuerProfile {
     }
 
     fn validate_trust_anchor(&self, certificate: &Certificate) -> Vec<String> {
-        validate_iaca_extensions(certificate)
+        validate_iaca_extensions(
+            certificate,
+            self.crl_distribution_points,
+            self.issuer_alternative_name,
+        )
     }
 
     /// Annex B forbids sub-CAs.

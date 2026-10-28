@@ -1,7 +1,10 @@
+use const_oid::db::rfc5912::{ECDSA_WITH_SHA_256, ECDSA_WITH_SHA_384, ECDSA_WITH_SHA_512};
+use const_oid::ObjectIdentifier;
 use der::Encode;
-use ecdsa::{signature::Verifier, Signature, VerifyingKey};
+use ecdsa::{signature::hazmat::PrehashVerifier, Signature, VerifyingKey};
 use p256::NistP256;
 use p384::NistP384;
+use sha2::{Digest, Sha256, Sha384, Sha512};
 use x509_cert::Certificate;
 
 use crate::definitions::x509::util::{public_key, SupportedCurve};
@@ -28,7 +31,7 @@ macro_rules! verify_sig {
             }
         };
 
-        match signing_key.verify($tbs, &sig) {
+        match signing_key.verify_prehash($tbs, &sig) {
             Ok(()) => true,
             Err(e) => {
                 tracing::info!("signature verification failed: {e:?}");
@@ -48,7 +51,12 @@ pub fn issuer_signed_subject(subject: &Certificate, issuer: &Certificate) -> boo
         }
     };
 
-    verify_signature(issuer, subject.signature.raw_bytes(), &tbs)
+    verify_signature(
+        issuer,
+        &subject.signature_algorithm.oid,
+        subject.signature.raw_bytes(),
+        &tbs,
+    )
 }
 
 /// Verify a DER-encoded signature against a signing certificate's public key.
@@ -57,6 +65,7 @@ pub fn issuer_signed_subject(subject: &Certificate, issuer: &Certificate) -> boo
 /// validation and CRL signature validation.
 pub(crate) fn verify_signature(
     signing_cert: &Certificate,
+    algorithm: &ObjectIdentifier,
     signature_bytes: &[u8],
     tbs: &[u8],
 ) -> bool {
@@ -64,10 +73,19 @@ pub(crate) fn verify_signature(
         tracing::error!("unsupported or missing curve OID in signing certificate");
         return false;
     };
+    let prehash = match *algorithm {
+        ECDSA_WITH_SHA_256 => Sha256::digest(tbs).to_vec(),
+        ECDSA_WITH_SHA_384 => Sha384::digest(tbs).to_vec(),
+        ECDSA_WITH_SHA_512 => Sha512::digest(tbs).to_vec(),
+        _ => {
+            tracing::error!("unsupported signature algorithm {algorithm}");
+            return false;
+        }
+    };
 
     match curve {
-        SupportedCurve::P256 => verify_sig!(NistP256, signing_cert, signature_bytes, tbs),
-        SupportedCurve::P384 => verify_sig!(NistP384, signing_cert, signature_bytes, tbs),
+        SupportedCurve::P256 => verify_sig!(NistP256, signing_cert, signature_bytes, &prehash),
+        SupportedCurve::P384 => verify_sig!(NistP384, signing_cert, signature_bytes, &prehash),
     }
 }
 

@@ -153,6 +153,7 @@ pub fn validate_crl(
 
     if !super::validation::signature::verify_signature(
         signing_cert,
+        &crl.signature_algorithm.oid,
         crl.signature.raw_bytes(),
         &tbs,
     ) {

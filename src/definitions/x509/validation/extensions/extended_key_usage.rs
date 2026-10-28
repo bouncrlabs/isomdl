@@ -13,13 +13,17 @@ pub struct ExtendedKeyUsageValidator {
 
 impl ExtendedKeyUsageValidator {
     fn check(&self, eku: ExtendedKeyUsage) -> Option<Error> {
-        if !eku.0.iter().all(|oid| *oid == self.expected_oid) {
+        let document_signer = DOCUMENT_SIGNER_OIDS.contains(&self.expected_oid);
+        let allowed = |oid: &ObjectIdentifier| {
+            *oid == self.expected_oid || (document_signer && DOCUMENT_SIGNER_OIDS.contains(oid))
+        };
+        if eku.0.is_empty() {
+            Some(format!("expected '{}', found '[]'", self.expected_oid))
+        } else if !eku.0.contains(&self.expected_oid) || !eku.0.iter().all(allowed) {
             Some(format!(
                 "expected '{}', found '{:?}'",
                 self.expected_oid, eku.0
             ))
-        } else if eku.0.is_empty() {
-            Some(format!("expected '{}', found '[]'", self.expected_oid))
         } else {
             None
         }
@@ -57,6 +61,11 @@ impl ExtensionValidator for ExtendedKeyUsageValidator {
         }
     }
 }
+
+const DOCUMENT_SIGNER_OIDS: [ObjectIdentifier; 2] = [
+    document_signer_extended_key_usage_oid(),
+    ObjectIdentifier::new_unwrap("1.0.23220.4.1.2"),
+];
 
 pub const fn document_signer_extended_key_usage_oid() -> ObjectIdentifier {
     // Unwrap safety: unit tested.
@@ -103,4 +112,18 @@ fn test_mdoc_reader_extended_key_usage_oid() {
 #[test]
 fn test_vical_signer_extended_key_usage_oid() {
     vical_signer_extended_key_usage_oid();
+}
+
+#[test]
+fn test_dual_document_signer() {
+    let dual = || {
+        ExtendedKeyUsage(vec![
+            document_signer_extended_key_usage_oid(),
+            ObjectIdentifier::new_unwrap("1.0.23220.4.1.2"),
+        ])
+    };
+    let check = |expected_oid| ExtendedKeyUsageValidator { expected_oid }.check(dual());
+    assert!(check(document_signer_extended_key_usage_oid()).is_none());
+    assert!(check(ObjectIdentifier::new_unwrap("1.0.23220.4.1.2")).is_none());
+    assert!(check(mdoc_reader_extended_key_usage_oid()).is_some());
 }
