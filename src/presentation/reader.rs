@@ -448,7 +448,15 @@ impl SessionManager {
         .map_err(|e| anyhow!("unable to encrypt request: {}", e))
     }
 
-    fn decrypt_response(&mut self, response: &[u8]) -> Result<DeviceResponse, ResponseError> {
+    pub fn session_transcript(&self) -> &SessionTranscript180135 {
+        &self.session_transcript
+    }
+
+    pub fn e_reader_key_private(&self) -> [u8; 32] {
+        self.e_reader_key_private
+    }
+
+    pub fn decrypt_response(&mut self, response: &[u8]) -> Result<DeviceResponse, ResponseError> {
         let session_data: SessionData =
             cbor::from_slice(response).map_err(|e| ResponseError::CborDecoding {
                 detail: format!("could not decode the session data: {e}"),
