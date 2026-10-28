@@ -207,13 +207,11 @@ impl Reader {
             "{:?}",
             document.errors
         );
-        // Device authentication is not attempted: the device key lives in the MSO, and
-        // an unverified MSO's device key proves nothing.
         assert!(
-            document
+            !document
                 .errors
                 .iter()
-                .any(|e| matches!(e, DocumentError::DeviceAuthenticationNotAttempted { .. })),
+                .any(|e| matches!(e, DocumentError::DeviceAuthentication { .. })),
             "{:?}",
             document.errors
         );

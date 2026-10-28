@@ -210,51 +210,36 @@ where
     };
 
     // An empty registry is a deployment error, and is worth telling apart from a
-    // populated registry that simply has no anchor for this chain — that case falls
-    // through to `CertificateChain` below. Today both look identical to an operator.
-    if trust_anchors.anchors.is_empty() {
+    // populated registry that simply has no anchor for this chain.
+    let iaca = if trust_anchors.anchors.is_empty() {
         outcome.errors.push(DocumentError::NoTrustAnchorsConfigured);
-        outcome
-            .errors
-            .push(DocumentError::DeviceAuthenticationNotAttempted {
-                detail: "there is no trust anchor to authenticate the issuer against".to_string(),
-            });
-        return outcome.finish();
-    }
+        None
+    } else {
+        let validation = x509::validation::validate_with_options(
+            &profile,
+            &x5chain,
+            trust_anchors,
+            revocation_fetcher,
+            options,
+        )
+        .await;
 
-    let validation = x509::validation::validate_with_options(
-        &profile,
-        &x5chain,
-        trust_anchors,
-        revocation_fetcher,
-        options,
-    )
-    .await;
-
-    // Revocation *failures* are infrastructure problems, not evidence of revocation —
-    // an actually revoked certificate shows up in `validation.errors`.
-    outcome.warnings.extend(
-        validation
-            .revocation_errors
-            .into_iter()
-            .map(|detail| DocumentWarning::Revocation { detail }),
-    );
-
-    if !validation.errors.is_empty() {
+        // Revocation *failures* are infrastructure problems, not evidence of revocation —
+        // an actually revoked certificate shows up in `validation.errors`.
+        outcome.warnings.extend(
+            validation
+                .revocation_errors
+                .into_iter()
+                .map(|detail| DocumentWarning::Revocation { detail }),
+        );
         outcome.errors.extend(
             validation
                 .errors
                 .into_iter()
                 .map(|detail| DocumentError::CertificateChain { detail }),
         );
-        outcome
-            .errors
-            .push(DocumentError::DeviceAuthenticationNotAttempted {
-                detail: "the issuer's certificate chain did not validate".to_string(),
-            });
-        return outcome.finish();
-    }
-    let iaca = validation.trust_anchor;
+        validation.trust_anchor
+    };
 
     let mso = match issuer_authentication(x5chain, &document.issuer_signed) {
         Ok(mso) => mso,

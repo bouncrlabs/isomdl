@@ -394,7 +394,10 @@ async fn an_empty_registry_reports_misconfiguration_not_a_device_failure() {
 
     let document = only_failed(&outcome);
     assert!(has(&document.errors, "no_trust_anchors_configured"));
-    assert!(has(&document.errors, "device_authentication_not_attempted"));
+    assert!(!has(
+        &document.errors,
+        "device_authentication_not_attempted"
+    ));
     assert!(
         !has(&document.errors, "device_authentication"),
         "reported a device authentication failure for a check that never ran: {:?}",
@@ -693,7 +696,10 @@ async fn an_untrusted_issuer_is_not_confused_with_a_missing_registry() {
         "an untrusted issuer was reported as a missing registry: {:?}",
         document.errors
     );
-    assert!(has(&document.errors, "device_authentication_not_attempted"));
+    assert!(!has(
+        &document.errors,
+        "device_authentication_not_attempted"
+    ));
 }
 
 /// A revoked certificate is an error. A CRL the reader could not *reach* is a warning.

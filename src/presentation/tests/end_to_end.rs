@@ -116,19 +116,9 @@ async fn mac0_device_authentication_fails_with_the_wrong_reader_key() {
     );
 }
 
-/// Device authentication must never be attempted when issuer authentication has not
-/// succeeded.
-///
-/// The device key is carried *inside* the MSO. Verifying a DeviceAuth signature
-/// against a key taken from an unverified MSO proves only that whoever wrote the
-/// response holds the key they themselves put there — so a reader that reported the
-/// device as authenticated here would be telling the consumer the holder proved
-/// possession when nothing of the sort was established.
-///
-/// The DeviceAuth signature in this response is genuine and would verify; the point
-/// is that it is never checked, because there is no trusted MSO to check it against.
+/// An untrusted chain fails the document even though every other check still runs and passes.
 #[tokio::test]
-async fn device_authentication_is_not_attempted_without_issuer_authentication() {
+async fn an_untrusted_issuer_fails_even_when_device_authentication_passes() {
     let pki = TestPki::issuer();
     let mdoc = issue_test_mdoc(&pki, MDL_DOC_TYPE, valid_for_a_year()).unwrap();
 
@@ -153,10 +143,11 @@ async fn device_authentication_is_not_attempted_without_issuer_authentication() 
         document.errors
     );
     assert!(
-        document
-            .errors
-            .iter()
-            .any(|e| matches!(e, DocumentError::DeviceAuthenticationNotAttempted { .. })),
+        !document.errors.iter().any(|e| matches!(
+            e,
+            DocumentError::DeviceAuthentication { .. }
+                | DocumentError::DeviceAuthenticationNotAttempted { .. }
+        )),
         "{:?}",
         document.errors
     );
