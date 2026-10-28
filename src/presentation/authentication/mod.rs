@@ -261,6 +261,8 @@ pub enum DocumentError {
     CertificateChain { detail: String },
     #[error("issuer authentication failed: {detail}")]
     IssuerAuthentication { detail: String },
+    #[error("a disclosed element does not match its MSO digest: {detail}")]
+    DigestMismatch { detail: String },
     #[error("the MSO could not be decoded: {detail}")]
     MalformedMso { detail: String },
     /// The holder labelled the document with a doc type the issuer did not sign.
@@ -307,6 +309,7 @@ impl DocumentError {
             Self::NoProfileConfigured { .. } => "no_profile_configured",
             Self::CertificateChain { .. } => "certificate_chain",
             Self::IssuerAuthentication { .. } => "issuer_authentication",
+            Self::DigestMismatch { .. } => "digest_mismatch",
             Self::MalformedMso { .. } => "malformed_mso",
             Self::DocTypeMismatch { .. } => "doc_type_mismatch",
             Self::MsoExpired => "mso_expired",

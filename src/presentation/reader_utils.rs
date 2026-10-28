@@ -504,6 +504,7 @@ fn issuer_error(e: ReaderError) -> DocumentError {
         ReaderError::MSOParsing | ReaderError::DetachedIssuerAuth => DocumentError::MalformedMso {
             detail: e.to_string(),
         },
+        ReaderError::IssuerDigestMismatch(detail) => DocumentError::DigestMismatch { detail },
         e => DocumentError::IssuerAuthentication {
             detail: e.to_string(),
         },
